@@ -1,54 +1,103 @@
-# Contract Clause RAG
+            # Contract Clause RAG
 
-Contract clause retrieval with risk tags, citations, and a legal review UI.
+            Contract clause finder with risk tags, severity scoring, and citation-backed answers for legal/ops review loops.
 
-## Stack
+            ![CI](https://img.shields.io/badge/CI-pytest%20%7C%20ruff%20%7C%20mypy-22c55e)
+            ![Python](https://img.shields.io/badge/python-3.11%2B-3b82f6)
+            ![Stack](https://img.shields.io/badge/stack-FastAPI%20%7C%20SQLAlchemy%20%7C%20Jinja-0ea5e9)
+            ![License](https://img.shields.io/badge/license-MIT-informational)
 
-- **Backend:** FastAPI + Jinja UI (full-stack single service)
-- **LLM:** mock provider by default; optional OpenAI / Ollama via env
-- **Packaging:** Docker + docker-compose
-- **Tests:** pytest API smoke tests
+            ## Why this exists
 
-## Architecture
+            Thin “RAG demo” repos usually stop at a single `/ask` endpoint and a mock answer.
+            This project is structured like an engineering deliverable: ingest → chunk → retrieve →
+            generate → cite, with an operator UI, health checks, structured logging, Docker, and CI.
 
-```text
-Browser UI ──► FastAPI routes ──► domain store (JSON)
-                   │
-                   └──► llm.complete() (mock | openai | ollama)
-```
+            ## Features
 
-## Quick start (local)
+            - Contract ingest with sliding-window clause extraction
+- Automatic risk tagging (indemnity, liability, data, IP, termination, auto-renew)
+- Risk-biased lexical search and grounded /ask
+- Operator UI for counsel/ops review
+- CI, Docker, structured logging
 
-```bash
-python -m venv .venv
-# Windows: .venv\Scripts\activate
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-uvicorn backend.main:app --reload --port 8000
-```
+            ## Architecture (high level)
 
-Open http://127.0.0.1:8000
+            ```
+            Browser / API client
+                    │
+                    ▼
+            FastAPI (middleware + routers)
+                    │
+         ┌──────────┼──────────┐
+         ▼          ▼          ▼
+      Ingest     Retrieve    Answer
+      (chunk)   (lexical)   (LLM + citations)
+         │          │          │
+         └──────────┴──────────┘
+                    ▼
+              SQLite (async SQLAlchemy)
+            ```
 
-## Docker
+            Lexical ranking ships by default so CI stays deterministic. Replace `score_chunk`
+            with embedding cosine similarity (pgvector / Qdrant / OpenAI embeddings) without
+            changing the API surface.
 
-```bash
-docker compose up --build
-```
+            ## Quick start
 
-## API
+            ```bash
+            python -m venv .venv
+            # Windows: .venv\\Scripts\\activate
+            source .venv/bin/activate
+            pip install -r requirements.txt -r requirements-dev.txt
+            cp .env.example .env
+            uvicorn backend.main:app --reload --port 8000
+            ```
 
-- `GET /health`
+            Open http://127.0.0.1:8000 — the Jinja console is the fastest way to exercise the flow.
+
+            ## Docker
+
+            ```bash
+            docker compose up --build
+            ```
+
+            Healthcheck hits `/health`. Persist SQLite via the `./data` volume.
+
+            ## LLM modes
+
+            | Mode | When to use |
+            |------|-------------|
+            | `mock` (default) | Offline demos + pytest |
+            | `openai` | Set `OPENAI_API_KEY` |
+            | `ollama` | Local models via `OLLAMA_BASE_URL` |
+
+            ## HTTP API (summary)
+
+            - `POST /api/contracts`
 - `GET /api/clauses`
-- `POST /api/clauses`
-- `POST /api/query_clauses` — Retrieve risky clauses with citations
+- `GET /api/search?q=`
+- `POST /api/ask`
 
-## Tests
+            Full reference: [docs/api.md](docs/api.md)
 
-```bash
-pytest -q
-```
+            ## Tests & quality gates
 
-## Notes
+            ```bash
+            pytest -q --cov=backend --cov-report=term-missing
+            ruff check backend tests
+            mypy backend --ignore-missing-imports
+            ```
 
-Production-shaped learning app: real routes, UI, Docker, and tests. Swap `LLM_MODE=openai` or `ollama` when you have credentials/models.
+            GitHub Actions runs the same gate on every push to `main`.
+
+            ## Docs
+
+            - [Architecture](docs/architecture.md)
+            - [API](docs/api.md)
+            - [Deployment](docs/deployment.md)
+            - [Operations runbook](docs/runbook.md)
+
+            ## License
+
+            MIT — see [LICENSE](LICENSE).
