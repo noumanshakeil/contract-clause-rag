@@ -1,0 +1,12 @@
+{
+  "project": "contract-clause-rag",
+  "resource": "clauses",
+  "samples": [
+    {
+      "id": "cl1",
+      "contract_id": "MSA-9",
+      "text": "Auto-renewal",
+      "risk": "medium"
+    }
+  ]
+}
